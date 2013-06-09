@@ -1,0 +1,135 @@
+#!/usr/bin/env python
+
+import httplib
+import mimetypes
+import os
+import json
+import sys
+
+def post_multipart(host, selector, fields, files):
+	"""
+	Post fields and files to an http host as multipart/form-data.
+	fields is a sequence of (name, value) elements for regular form fields.
+	files is a sequence of (name, filename, value) elements for data to be uploaded as files
+	Return the server's response page.
+	"""
+	content_type, body = encode_multipart_formdata(fields, files)
+	h = httplib.HTTP(host)
+	h.putrequest('POST', selector)
+	h.putheader('host', host)
+	h.putheader('content-type', content_type)
+	h.putheader('content-length', str(len(body)))
+	h.endheaders()
+	h.send(body)
+	errcode, errmsg, headers = h.getreply()
+	return h.file.read()
+
+def encode_multipart_formdata(fields, files):
+	"""
+	fields is a sequence of (name, value) elements for regular form fields.
+	files is a sequence of (name, filename, value) elements for data to be uploaded as files
+	Return (content_type, body) ready for httplib.HTTP instance
+	"""
+	BOUNDARY = '----------ThIs_Is_tHe_bouNdaRY_$'
+	CRLF = '\r\n'
+	L = []
+	for (key, value) in fields:
+		L.append('--' + BOUNDARY)
+		L.append('Content-Disposition: form-data; name="%s"' % key)
+		L.append('')
+		L.append(value)
+	for (key, filename, value) in files:
+		L.append('--' + BOUNDARY)
+		L.append('Content-Disposition: form-data; name="%s"; filename="%s"' % (key, filename))
+		L.append('Content-Type: %s' % get_content_type(filename))
+		L.append('')
+		L.append(value)
+	L.append('--' + BOUNDARY + '--')
+	L.append('')
+	body = CRLF.join(L)
+	content_type = 'multipart/form-data; boundary=%s' % BOUNDARY
+	return content_type, body
+
+def get_content_type(filename):
+	return mimetypes.guess_type(filename)[0] or 'application/octet-stream'
+
+def handle_config( config, overrides ):
+	info = { }
+	if os.path.exists( config ):
+		info = json.loads( open( config ).read( ) )
+	if 'email' in overrides: info[ 'email' ] = overrides[ 'email' ]
+	if 'units' in overrides: info[ 'units' ] = overrides[ 'units' ]
+	if 'email' not in info or 'units' not in info:
+		print 'Configuration is incomplete - check --help'
+		sys.exit( 0 )
+	open( config, 'w' ).write( json.dumps( info ) )
+	return info
+
+def usage( ):
+	print "Usage: %s [OPTIONS] FILE" % os.path.basename( sys.argv[ 0 ] )
+	print
+	print "--help          : this information"
+	print "--email address : use address for this and future cases"
+	print "--units units   : use units for this and future cases"
+	print "--reset         : reset cached information regarding email and units"
+	print 
+	print "Currently, only STL files are supported - jscad and scad to follow"
+	sys.exit( 0 )
+
+def main( ):
+
+	if len( sys.argv ) == 1:
+		usage( )
+
+	config = '%s/.netfabb' % os.getenv( 'HOME' )
+	overrides = { }
+	upload = ''
+
+	i = 1
+	while i < len( sys.argv ):
+		if sys.argv[ i ] == '--help': 
+			usage( )
+		elif sys.argv[ i ] == '--reset':
+			if os.path.exists( config ):
+				os.path.unlink( config )
+		elif sys.argv[ i ] == '--email':
+			i += 1
+			overrides[ 'email' ] = sys.argv[ i ]
+		elif sys.argv[ i ] == '--units':
+			i += 1
+			overrides[ 'units' ] = sys.argv[ i ]
+		elif upload == '' and os.path.exists( sys.argv[ i ] ):
+			upload = sys.argv[ i ]
+		else:
+			print "Invalid command line argument %s - aborting" % sys.argv[ i ]
+			sys.exit( 1 )
+		i += 1
+
+	info = handle_config( config, overrides )
+
+	if upload == '':
+		print 'No model to upload - see --help'
+		sys.exit( 2 )
+
+	fields = [ ]
+	fields.append( ( 'email', info[ 'email' ] ) )
+	fields.append( ( 'units', info[ 'units' ] ) )
+	fields.append( ( 'filerepair', '1' ) )
+	fields.append( ( 'termsandconditions', '1' ) )
+	fields.append( ( 'upload', 'Upload to Cloud' ) )
+	files = [ ]
+	files.append( ( 'file', os.path.basename( upload ), open( upload ).read( ) ) )
+
+	output = post_multipart( 'www.netfabb.com', '/cloud/index.php', fields, files )
+	if output.find( "Shortly after processing, you will receive your results by Email." ) == -1:
+		print "Cloud submission failed - html output provided as:"
+		print
+		print output
+		sys.exit( 3 )
+	else:
+		print "Uploaded %s successfully. Check %s mailbox for fixed model" % ( upload, info[ 'email' ] )
+	sys.exit( 0 )
+
+if __name__ == '__main__':
+	main( )
+
