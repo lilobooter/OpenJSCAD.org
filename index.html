@@ -115,7 +115,7 @@ $(document).ready(function() {
 });   
 </script>
 </head>
-<body>
+<body onkeyup="onkey( event );">
 
 <img id="header" src="imgs/title.png">
 
@@ -126,6 +126,7 @@ $(document).ready(function() {
 <p/>
 <table class=info>
 <tr><td align=right class=infoOperation>Render Code</td><td class=infoKey>SHIFT + RETURN</td></tr>
+<tr><td align=right class=infoOperation>Toggle Editor</td><td class=infoKey>Escape</td></tr>
 <tr><td align=right class=infoOperation>Rotate XZ</td><td class=infoKey>Left Mouse</td></tr>
 <tr><td align=right class=infoOperation>Pan</td><td class=infoKey>Middle Mouse or SHIFT + Left Mouse</td></tr>
 <tr><td align=right class=infoOperation>Rotate XY</td><td class=infoKey>Right Mouse or ALT + Left Mouse</td></tr>
@@ -389,7 +390,7 @@ if(me=='web-online') {
       <button id="getstlbutton" style="display:none" onclick="getStl();">Get STL</button>
       <button onclick="superviseAllFiles({forceReload:true});">Reload</button>
       <!--button onclick="parseFile(gCurrentFile,true,false);">Debug (see below)</button-->
-	   <label for="autoreload">Auto Reload</label><input type="checkbox" name="autoreload" value="" id="autoreload" onclick="toggleAutoReload();">
+	   <label for="autoreload">Auto Reload</label><input type="checkbox" name="autoreload" value="" checked="true" id="autoreload" onclick="toggleAutoReload();">
     </div>
   </div>
 </div>
@@ -449,6 +450,18 @@ var gMemFsChanged = 0;        // how many files have changed
 var gRootFs = [];             // root(s) of folders 
 
 var _includePath = './';
+
+function toggleEditor( )
+{
+  var style = document.getElementById('editor').style;
+  style.visibility = style.visibility == 'hidden' ? 'visible' : 'hidden';
+}
+
+function onkey( evt )
+{
+  if ( evt.keyCode == 27 ) 
+    toggleEditor( );
+}
 
 function onload() {
    // -- http://ace.ajax.org/#nav=howto
@@ -520,6 +533,10 @@ function onload() {
    } else {
       gProcessor.setJsCad(editor.getValue());
    }
+
+   var style = document.getElementById('editor').style;
+   style.visibility = 'hidden';
+   toggleAutoReload();
 }
 
 function fetchExample(fn,url) {
