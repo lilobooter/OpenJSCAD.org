@@ -8,7 +8,7 @@ all::
 install::
 	test -d ${NODE_MODULES}/openscad-openjscad-translator || sudo npm -g install openscad-openjscad-translator
 	#test -d ${NODE_MODULES}/jquery || sudo npm -g install jquery
-	sudo scp openjscad /usr/local/bin/
+	sudo scp openjscad openjsfabb /usr/local/bin/
 	sudo mkdir -p ${LIB}
 	sudo scp *.js ${LIB}
 	mkdir -p cache; chmod a+rw cache
